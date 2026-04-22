@@ -78,6 +78,7 @@ eval = [
     "datamodel-code-generator==0.53.0",
 ]
 cli-oci = ["browser-use[cli,oci]"]
+sidecar = ["fastapi==0.128.0", "uvicorn==0.40.0"]
 all = ["browser-use[cli,examples,aws,oci]"]
 
 # will prefer to use local source code checked out in ../../browser-use (if present) instead of pypi browser-use package
