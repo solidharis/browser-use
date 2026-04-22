@@ -2,11 +2,11 @@
 
 Architecture:
   _record_trace()         — harvest JS-recorded interactions from a live BrowserSession
-  _compile_implementation() — ask claude-3-5-sonnet to generalise selectors / detect placeholders
+  _compile_implementation() — ask gpt-4o to generalise selectors / detect placeholders
   _execute_step()         — drive real BrowserSession via cdp-use; self-heals via LLM on failure
   _heal_and_retry()       — one LLM-guided retry when a step fails
 
-When ANTHROPIC_API_KEY is absent the module degrades gracefully:
+When OPENAI_API_KEY is absent the module degrades gracefully:
   - training falls back to the heuristic compiler
   - task execution skips browser startup (no-op, status derived from step metadata)
 
@@ -185,10 +185,10 @@ _RECORDER_SCRIPT = r"""
 
 
 def _get_llm(temperature: float = 0) -> Any:
-	"""Return a ChatAnthropic instance reading ANTHROPIC_API_KEY from env."""
-	from browser_use.llm.anthropic.chat import ChatAnthropic
+	"""Return a ChatOpenAI instance reading OPENAI_API_KEY from env."""
+	from browser_use.llm.openai.chat import ChatOpenAI
 
-	return ChatAnthropic(model='claude-3-5-sonnet-20241022', temperature=temperature)
+	return ChatOpenAI(model='gpt-4o', temperature=temperature)
 
 
 # ---------------------------------------------------------------------------
@@ -262,7 +262,7 @@ def _compile_heuristic(session: dict[str, Any], events: list[dict[str, Any]]) ->
 
 
 async def _compile_with_llm(session: dict[str, Any], events: list[dict[str, Any]]) -> CompiledImplementation:
-	"""Use claude-3-5-sonnet to generalise selectors and detect input placeholders."""
+	"""Use gpt-4o to generalise selectors and detect input placeholders."""
 	from browser_use.llm.messages import ContentPartTextParam, SystemMessage, UserMessage
 
 	llm = _get_llm(temperature=0)
@@ -302,7 +302,7 @@ async def _compile_with_llm(session: dict[str, Any], events: list[dict[str, Any]
 
 async def _compile_implementation(session: dict[str, Any], events: list[dict[str, Any]]) -> CompiledImplementation:
 	"""Compile raw trace → CompiledImplementation, using LLM when possible."""
-	if os.getenv('ANTHROPIC_API_KEY'):
+	if os.getenv('OPENAI_API_KEY'):
 		try:
 			return await _compile_with_llm(session, events)
 		except Exception as exc:
@@ -394,7 +394,7 @@ async def _heal_and_retry(
 	  NAVIGATE:<url>
 	  SKIP
 	"""
-	if browser_session is None or not os.getenv('ANTHROPIC_API_KEY'):
+	if browser_session is None or not os.getenv('OPENAI_API_KEY'):
 		return False, original_error
 
 	try:
@@ -569,7 +569,7 @@ async def train_start(req: TrainStartRequest, background_tasks: BackgroundTasks)
 	}
 	# Only launch a real browser when an API key is available
 	# (keeps unit tests fast / dependency-free)
-	if req.start_url and os.getenv('ANTHROPIC_API_KEY'):
+	if req.start_url and os.getenv('OPENAI_API_KEY'):
 		background_tasks.add_task(_start_recording_session, training_session_id, req.start_url)
 
 	return TrainStartResponse(training_session_id=training_session_id)
@@ -630,7 +630,7 @@ async def run_tasks(req: TaskRequest) -> TaskResponse:
 
 	# Start a real browser only when executing (not dry-run) and key is available
 	browser_session: Any = None
-	if req.mode == 'execute' and os.getenv('ANTHROPIC_API_KEY'):
+	if req.mode == 'execute' and os.getenv('OPENAI_API_KEY'):
 		try:
 			from browser_use.browser.profile import BrowserProfile
 			from browser_use.browser.session import BrowserSession
